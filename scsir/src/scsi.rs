@@ -20,20 +20,28 @@ pub struct Scsi {
 
 impl Scsi {
     pub fn new<P: AsRef<Path> + ?Sized>(path: &P) -> crate::Result<Scsi> {
+        Self::new_internal(path.as_ref(), true)
+    }
+
+    pub fn new_readonly<P: AsRef<Path> + ?Sized>(path: &P) -> crate::Result<Scsi> {
+        Self::new_internal(path.as_ref(), false)
+    }
+
+    fn new_internal(path: &Path, write_perm: bool) -> crate::Result<Scsi> {
         let mut options = OpenOptions::new();
-        options.read(true).write(true);
+        options.read(true).write(write_perm);
         let file_descriptor = FileDescriptor::open(&path, options)?;
 
         if !file_descriptor.is_block()? {
-            return Err(crate::Error::NotBlockDevice(path.as_ref().to_owned()));
+            return Err(crate::Error::NotBlockDevice(path.to_owned()));
         }
 
         if !Self::is_scsi_device(&file_descriptor)? {
-            return Err(crate::Error::NotScsiDevice(path.as_ref().to_owned()));
+            return Err(crate::Error::NotScsiDevice(path.to_owned()));
         }
 
         Ok(Scsi {
-            path: path.as_ref().to_owned(),
+            path: path.to_owned(),
             file_descriptor,
             timeout: Duration::from_millis(SG_DEFAULT_TIMEOUT),
         })
